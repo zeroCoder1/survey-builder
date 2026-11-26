@@ -33,7 +33,7 @@ export default function Home() {
         <div className="brand">Survey Builder</div>
       </header>
       <main className="container">
-        <div className="row between">
+        <div className="row between wrap gap">
           <div>
             <h1 className="home-title">Your studies</h1>
             <p className="muted home-sub">
