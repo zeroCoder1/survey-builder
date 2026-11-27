@@ -25,7 +25,7 @@ cp .env.example .env
 npm run dev
 ```
 
-The web app runs on http://localhost:5173 and the API on port 3001. The schema is created on first start. Open the app to create the first account.
+The web app runs on http://localhost:5173 and the API on port 3001. The schema is created on first start. Open the app and choose **Create an account**.
 
 To build and run the production server, which serves both the app and the API on `PORT`:
 
@@ -37,22 +37,29 @@ npm start
 ## Deploying to Railway
 
 1. Create a project with a **PostgreSQL** database and a service for this repository.
-2. On the service, set these variables:
-   - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`
-   - `SETUP_TOKEN` = a long random string
+2. On the service, set `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`.
 3. Deploy. Railway's builder runs `npm run build` and `npm start`. Under **Settings → Deploy**, set the health-check path to `/api/health`.
-4. Open `https://<your-domain>/login?token=<SETUP_TOKEN>` to create the first account. You can then add teammates under **Team & account**.
+
+No other setup is needed: people open the site and create an account themselves.
+
+## Accounts and workspaces
+
+- Anyone can **sign up** with name, email and password, and gets a private **workspace** straight away.
+- Studies, people directories and responses belong to a workspace. Only its members can see them.
+- Any member can create an **invite link** under **Team & settings**. Links can be reused for 7 days, the team page shows how often each was used, and they can be turned off at any time. Whoever opens one signs up (or signs in) and joins that workspace.
+- Each workspace has one **owner**, who can rename it and remove members. Members can leave.
+- If you belong to several workspaces, you switch between them from the account menu.
 
 ## Security model
 
-- **Admin access:** email and password sign-in (scrypt hashes). Sessions are HttpOnly, Secure, SameSite cookies that expire after 14 days, and the server stores only a hash of each session token. Sign-in attempts are rate-limited.
+- **Accounts:** email and password (scrypt hashes). Sessions are HttpOnly, Secure, SameSite cookies that expire after 14 days, and the server stores only a hash of each session token. Sign-up and sign-in attempts are rate-limited. Every study request is checked against the caller's workspace.
 - **Forms:**
   - Each survey has an unguessable link (`/f/<token>`) that only the server issues.
   - A form endpoint returns just that survey's questions, never the people directory or any responses.
   - Submissions are validated on the server against the survey (options, scales, required and conditional questions, pick-N rules) and rate-limited per IP.
   - A survey can be closed to stop new responses.
 - **Privacy notice:** when the study has one, respondents must agree before submitting, and the response records when they agreed.
-- **Audit log:** records sign-ins, failed sign-ins, user changes, study creation and deletion, response changes and exports.
+- **Audit log:** records sign-ups, sign-ins, failed sign-ins, invites, membership changes, study creation and deletion, response changes and exports, each tagged with the workspace.
 - **HTTP hardening:** strict Content-Security-Policy and HSTS headers (via helmet). Every state-changing request must carry a custom header, which blocks cross-site form posts.
 
 ## Static demo (GitHub Pages)
@@ -77,7 +84,7 @@ npm start
 ```
 server/                   Express API: auth, studies, public forms, Postgres, audit log
 src/api.ts                API client: HTTP, or local storage for the static build
-src/auth.tsx              Session state and route guard
+src/auth.tsx              Session, active workspace and route guard
 src/types.ts, model.ts    Survey model and helpers
 src/exportExcel.ts        Workbook layout and export
 src/simulate.ts           Response simulation (anonymous or from the org tree)
