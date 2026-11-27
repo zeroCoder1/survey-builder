@@ -105,12 +105,14 @@ export const authRouter = Router();
 authRouter.get('/me', async (req, res) => {
   if (req.user) return res.json({ user: req.user });
   // 200 rather than 401: "not signed in" is a normal state for this endpoint
-  res.json({ user: null, needsSetup: (await userCount()) === 0 });
+  const needsSetup = (await userCount()) === 0;
+  res.json({ user: null, needsSetup, setupRequiresToken: needsSetup && (isProd || !!process.env.SETUP_TOKEN) });
 });
 
 authRouter.post('/setup', loginLimiter, async (req, res) => {
   if ((await userCount()) > 0) return res.status(409).json({ error: 'Setup is already complete. Please sign in.' });
-  if (!setupTokenOk(req.body?.setupToken)) return res.status(403).json({ error: 'Invalid setup link.' });
+  if (!setupTokenOk(req.body?.setupToken))
+    return res.status(403).json({ error: 'This setup link is missing or incorrect. Open the full link, including ?token=…' });
   const email = normalizeEmail(req.body?.email);
   if (!validEmail(email)) return res.status(400).json({ error: 'Enter a valid email address.' });
   const problem = passwordProblem(req.body?.password);

@@ -5,7 +5,7 @@ import { useAuth } from '../auth';
 
 /** Sign-in, or first-run account creation when the server has no users yet. */
 export default function Login() {
-  const { user, needsSetup, loading, setUser } = useAuth();
+  const { user, needsSetup, setupRequiresToken, loading, setUser } = useAuth();
   const [params] = useSearchParams();
   const location = useLocation();
   const nav = useNavigate();
@@ -20,13 +20,27 @@ export default function Login() {
   if (user) return <Navigate to={from} replace />;
 
   const setup = needsSetup;
+  const setupToken = params.get('token') ?? '';
+  if (setup && setupRequiresToken && !setupToken)
+    return (
+      <div className="auth-page">
+        <div className="card auth-card">
+          <div className="brand">Survey Builder</div>
+          <h1>Finish setting up</h1>
+          <p className="muted">
+            No account exists yet. To create the first one, open the setup link for this deployment. It ends in{' '}
+            <code>/login?token=…</code>, and the token is the <code>SETUP_TOKEN</code> variable on the server.
+          </p>
+        </div>
+      </div>
+    );
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
       const r = setup
-        ? await authApi.setup({ email, name, password, setupToken: params.get('token') ?? '' })
+        ? await authApi.setup({ email, name, password, setupToken })
         : await authApi.login(email, password);
       setUser(r.user);
       nav(from, { replace: true });

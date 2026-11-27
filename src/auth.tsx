@@ -5,6 +5,8 @@ import { AUTH_REQUIRED_EVENT, authApi, LOCAL_MODE, type User } from './api';
 interface AuthState {
   user: User | null;
   needsSetup: boolean;
+  /** Setup must be opened with the ?token=… link (production) */
+  setupRequiresToken: boolean;
   loading: boolean;
   setUser: (u: User | null) => void;
   signOut: () => Promise<void>;
@@ -13,6 +15,7 @@ interface AuthState {
 const AuthContext = createContext<AuthState>({
   user: null,
   needsSetup: false,
+  setupRequiresToken: false,
   loading: false,
   setUser: () => undefined,
   signOut: async () => undefined,
@@ -21,15 +24,17 @@ const AuthContext = createContext<AuthState>({
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
+  const [setupRequiresToken, setSetupRequiresToken] = useState(false);
   const [loading, setLoading] = useState(!LOCAL_MODE);
 
   useEffect(() => {
     if (LOCAL_MODE) return;
     fetch('/api/auth/me', { credentials: 'same-origin' })
       .then((r) => r.json())
-      .then((r: { user: User | null; needsSetup?: boolean }) => {
+      .then((r: { user: User | null; needsSetup?: boolean; setupRequiresToken?: boolean }) => {
         setUser(r.user ?? null);
         setNeedsSetup(!!r.needsSetup);
+        setSetupRequiresToken(!!r.setupRequiresToken);
       })
       .catch(() => setUser(null))
       .finally(() => setLoading(false));
@@ -44,7 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, needsSetup, loading, setUser: (u) => (setUser(u), setNeedsSetup(false)), signOut }}>
+    <AuthContext.Provider value={{ user, needsSetup, setupRequiresToken, loading, setUser: (u) => (setUser(u), setNeedsSetup(false)), signOut }}>
       {children}
     </AuthContext.Provider>
   );
