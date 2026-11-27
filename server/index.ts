@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import cookieParser from 'cookie-parser';
 import express, { type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
-import { authRouter, loadUser, usersRouter } from './auth.js';
+import { authRouter, invitesRouter, loadUser, workspaceRouter } from './auth.js';
 import { migrate, pool } from './db.js';
 import { formsRouter } from './forms.js';
 import { studiesRouter } from './studies.js';
@@ -55,7 +55,8 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
 app.use('/api/forms', express.json({ limit: '1mb' }), formsRouter);
 app.use('/api', express.json({ limit: '20mb' }), loadUser);
 app.use('/api/auth', authRouter);
-app.use('/api/users', usersRouter);
+app.use('/api/workspace', workspaceRouter);
+app.use('/api/invites', invitesRouter);
 app.use('/api/studies', studiesRouter);
 app.use('/api', (_req, res) => res.status(404).json({ error: 'Not found' }));
 

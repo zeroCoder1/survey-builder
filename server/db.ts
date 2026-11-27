@@ -82,6 +82,35 @@ const MIGRATIONS: string[] = [
      ip       text,
      at       timestamptz NOT NULL DEFAULT now()
    )`,
+  // Workspaces: every study belongs to one; users join them as owner or member.
+  `CREATE TABLE IF NOT EXISTS workspaces (
+     id         text PRIMARY KEY,
+     name       text NOT NULL,
+     created_at timestamptz NOT NULL DEFAULT now()
+   )`,
+  `CREATE TABLE IF NOT EXISTS memberships (
+     workspace_id text NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+     user_id      text NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+     role         text NOT NULL CHECK (role IN ('owner', 'member')),
+     created_at   timestamptz NOT NULL DEFAULT now(),
+     PRIMARY KEY (workspace_id, user_id)
+   )`,
+  `CREATE INDEX IF NOT EXISTS memberships_user_idx ON memberships(user_id)`,
+  // Invite links: only a hash of the token is stored; links can be reused until they expire or are revoked.
+  `CREATE TABLE IF NOT EXISTS invites (
+     id           text PRIMARY KEY,
+     token_hash   text NOT NULL UNIQUE,
+     workspace_id text NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+     created_by   text REFERENCES users(id) ON DELETE SET NULL,
+     expires_at   timestamptz NOT NULL,
+     revoked_at   timestamptz,
+     uses         integer NOT NULL DEFAULT 0,
+     created_at   timestamptz NOT NULL DEFAULT now()
+   )`,
+  `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS workspace_id text REFERENCES workspaces(id) ON DELETE SET NULL`,
+  `ALTER TABLE studies ADD COLUMN IF NOT EXISTS workspace_id text REFERENCES workspaces(id) ON DELETE CASCADE`,
+  `CREATE INDEX IF NOT EXISTS studies_workspace_idx ON studies(workspace_id)`,
+  `ALTER TABLE audit_log ADD COLUMN IF NOT EXISTS workspace_id text`,
 ];
 
 export async function migrate() {
