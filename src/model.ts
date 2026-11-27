@@ -82,6 +82,12 @@ export function renumberSurvey(survey: Survey): Survey {
   return { ...survey, sections };
 }
 
+/** The next `count` free codes in a section, e.g. EMP-C9, EMP-C10. */
+export function nextCodes(survey: Survey, section: Section, count: number): string[] {
+  const first = Number(nextCode(survey, section).split('-').pop()!.replace(section.letter, ''));
+  return Array.from({ length: count }, (_, i) => `${survey.code}-${section.letter}${first + i}`);
+}
+
 export function nextCode(survey: Survey, section: Section): string {
   const re = new RegExp(`^${escapeRe(survey.code)}-${escapeRe(section.letter)}(\\d+)$`);
   let max = 0;

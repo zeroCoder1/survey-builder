@@ -18,7 +18,25 @@ const PATHS = {
   collapseAll: 'M7 4l5 5 5-5M7 20l5-5 5 5',
   users: 'M16 20v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM22 20v-1a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75',
   search: 'M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4',
+  trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
+  grip: 'M9 6h.01M15 6h.01M9 12h.01M15 12h.01M9 18h.01M15 18h.01',
+  gripHorizontal: 'M6 9h.01M12 9h.01M18 9h.01M6 15h.01M12 15h.01M18 15h.01',
+  more: 'M5 12h.01M12 12h.01M19 12h.01',
+  branch: 'M6 3v12M6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM18 9a9 9 0 0 1-9 9',
+  layers: 'M12 3l9 5-9 5-9-5 9-5zM3 13l9 5 9-5',
+  clipboard: 'M9 3h6v4H9zM15 5h3v16H6V5h3M9 12h6M9 16h4',
+  radio: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  checkbox: 'M5 4h14a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zM8 12l3 3 5-6',
+  agree: 'M3 12h18M6 9v6M10.5 9v6M15 9v6M19.5 9v6',
+  bars: 'M5 20v-4M10 20v-8M15 20v-12M20 20V4',
+  toggle: 'M8 7h8a5 5 0 0 1 0 10H8A5 5 0 0 1 8 7zM16 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  shortText: 'M4 9h16M4 15h10',
+  longText: 'M4 6h16M4 10h16M4 14h16M4 18h10',
+  hash: 'M5 9h14M5 15h14M10 3L8 21M16 3l-2 18',
 } as const;
+
+/** Dot-style icons read better with a heavier stroke. */
+const HEAVY: Partial<Record<keyof typeof PATHS, number>> = { grip: 3, gripHorizontal: 3, more: 3 };
 
 export type IconName = keyof typeof PATHS;
 
@@ -31,7 +49,7 @@ export default function Icon({ name, size = 16, className = '' }: { name: IconNa
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.75}
+      strokeWidth={HEAVY[name] ?? 1.75}
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
