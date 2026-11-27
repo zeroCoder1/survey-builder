@@ -16,18 +16,44 @@ Build multi-survey questionnaires, collect responses through shareable forms or 
 
 ## Getting started
 
+Requires Node 22+ and PostgreSQL.
+
 ```bash
 npm install
+docker compose up -d          # local Postgres (or point DATABASE_URL at your own)
+cp .env.example .env
 npm run dev
 ```
 
-The web app runs on http://localhost:5173 and the API on port 3001. Data is stored in `data/db.json`.
+The web app runs on http://localhost:5173 and the API on port 3001. The schema is created on first start. Open the app to create the first account.
 
-To run a single production server that serves both the app and the API on `PORT` (default 3001):
+To build and run the production server, which serves both the app and the API on `PORT`:
 
 ```bash
+npm run build
 npm start
 ```
+
+## Deploying to Railway
+
+1. Create a project with a **PostgreSQL** database and a service for this repository.
+2. On the service, set these variables:
+   - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`
+   - `SETUP_TOKEN` = a long random string
+3. Deploy. `railway.json` builds with `npm run build`, starts with `npm start` and health-checks `/api/health`.
+4. Open `https://<your-domain>/login?token=<SETUP_TOKEN>` to create the first account. You can then add teammates under **Team & account**.
+
+## Security model
+
+- **Admin access:** email and password sign-in (scrypt hashes). Sessions are HttpOnly, Secure, SameSite cookies that expire after 14 days, and the server stores only a hash of each session token. Sign-in attempts are rate-limited.
+- **Forms:**
+  - Each survey has an unguessable link (`/f/<token>`) that only the server issues.
+  - A form endpoint returns just that survey's questions, never the people directory or any responses.
+  - Submissions are validated on the server against the survey (options, scales, required and conditional questions, pick-N rules) and rate-limited per IP.
+  - A survey can be closed to stop new responses.
+- **Privacy notice:** when the study has one, respondents must agree before submitting, and the response records when they agreed.
+- **Audit log:** records sign-ins, failed sign-ins, user changes, study creation and deletion, response changes and exports.
+- **HTTP hardening:** strict Content-Security-Policy and HSTS headers (via helmet). Every state-changing request must carry a custom header, which blocks cross-site form posts.
 
 ## Static demo (GitHub Pages)
 
@@ -49,12 +75,14 @@ npm start
 ## Project structure
 
 ```
-server/index.js           JSON-file API (studies, responses)
+server/                   Express API: auth, studies, public forms, Postgres, audit log
 src/api.ts                API client: HTTP, or local storage for the static build
+src/auth.tsx              Session state and route guard
 src/types.ts, model.ts    Survey model and helpers
 src/exportExcel.ts        Workbook layout and export
 src/simulate.ts           Response simulation (anonymous or from the org tree)
 src/org.ts                People directory helpers and sample-org generator
 src/template.ts           Sample study
+src/components/SurveyForm Respondent form (shared validation with the server)
 src/pages/, components/   UI
 ```
