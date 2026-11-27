@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, LOCAL_MODE } from '../api';
+import { useAuth } from '../auth';
 import UserMenu from '../components/UserMenu';
 import { newStudy } from '../model';
 import { sampleStudyTemplate } from '../template';
@@ -10,11 +11,14 @@ export default function Home() {
   const [studies, setStudies] = useState<StudySummary[] | null>(null);
   const [error, setError] = useState('');
   const nav = useNavigate();
+  const { workspace } = useAuth();
 
   const refresh = () => api.listStudies().then(setStudies).catch((e) => setError(e.message));
+  // reload when the user switches workspace
   useEffect(() => {
+    setStudies(null);
     refresh();
-  }, []);
+  }, [workspace?.id]);
 
   const create = async (fromTemplate: boolean) => {
     const { id: _ignored, ...blank } = newStudy();
@@ -38,7 +42,7 @@ export default function Home() {
       <main className="container">
         <div className="row between wrap gap">
           <div>
-            <h1 className="home-title">Your studies</h1>
+            <h1 className="home-title">{workspace ? workspace.name : 'Your studies'}</h1>
             <p className="muted home-sub">
               Build multi-survey questionnaires, collect or simulate responses, and export one analysis-ready Excel workbook.
             </p>

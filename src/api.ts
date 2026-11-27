@@ -204,19 +204,58 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  createdAt?: string;
+}
+
+export interface Workspace {
+  id: string;
+  name: string;
+  role: 'owner' | 'member';
+}
+
+export interface Member extends User {
+  role: 'owner' | 'member';
+  joinedAt: string;
+}
+
+export interface Invite {
+  id: string;
+  expiresAt: string;
+  uses: number;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+export interface Session {
+  user: User | null;
+  workspace?: Workspace | null;
+  workspaces?: Workspace[];
 }
 
 export const authApi = {
-  me: () => req<{ user: User }>('GET', '/api/auth/me'),
+  me: () => req<Session>('GET', '/api/auth/me'),
+  signup: (body: { name: string; email: string; password: string; workspaceName?: string; inviteToken?: string }) =>
+    req<{ user: User }>('POST', '/api/auth/signup', body),
   login: (email: string, password: string) => req<{ user: User }>('POST', '/api/auth/login', { email, password }),
-  setup: (body: { email: string; name: string; password: string; setupToken: string }) => req<{ user: User }>('POST', '/api/auth/setup', body),
   logout: () => req<void>('POST', '/api/auth/logout'),
+  switchWorkspace: (workspaceId: string) => req<{ workspace: Workspace }>('POST', '/api/auth/workspace', { workspaceId }),
   changePassword: (currentPassword: string, newPassword: string) => req<void>('POST', '/api/auth/password', { currentPassword, newPassword }),
-  listUsers: () => req<User[]>('GET', '/api/users'),
-  createUser: (body: { email: string; name: string; password: string }) => req<User>('POST', '/api/users', body),
-  deleteUser: (id: string) => req<void>('DELETE', `/api/users/${id}`),
 };
+
+export const workspaceApi = {
+  rename: (name: string) => req<{ workspace: Workspace }>('PATCH', '/api/workspace', { name }),
+  members: () => req<Member[]>('GET', '/api/workspace/members'),
+  removeMember: (userId: string) => req<void>('DELETE', `/api/workspace/members/${userId}`),
+  invites: () => req<Invite[]>('GET', '/api/workspace/invites'),
+  createInvite: () => req<{ id: string; token: string; expiresAt: string }>('POST', '/api/workspace/invites'),
+  revokeInvite: (id: string) => req<void>('DELETE', `/api/workspace/invites/${id}`),
+};
+
+export const invitesApi = {
+  get: (token: string) => req<{ workspaceName: string; inviter: string | null; alreadyMember: boolean }>('GET', `/api/invites/${encodeURIComponent(token)}`),
+  accept: (token: string) => req<{ workspace: Workspace }>('POST', `/api/invites/${encodeURIComponent(token)}/accept`),
+};
+
+export const inviteUrl = (token: string) => `${location.origin}/invite/${token}`;
 
 /** Records an export in the server's audit log (no-op for the static build). */
 export function logExport(studyId: string, detail: Record<string, unknown>) {

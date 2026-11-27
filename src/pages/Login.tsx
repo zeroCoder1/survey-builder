@@ -1,16 +1,13 @@
 import { useState, type FormEvent } from 'react';
-import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { authApi } from '../api';
 import { useAuth } from '../auth';
 
-/** Sign-in, or first-run account creation when the server has no users yet. */
 export default function Login() {
-  const { user, needsSetup, setupRequiresToken, loading, setUser } = useAuth();
-  const [params] = useSearchParams();
+  const { user, loading, refresh } = useAuth();
   const location = useLocation();
   const nav = useNavigate();
   const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -19,30 +16,13 @@ export default function Login() {
   if (loading) return null;
   if (user) return <Navigate to={from} replace />;
 
-  const setup = needsSetup;
-  const setupToken = params.get('token') ?? '';
-  if (setup && setupRequiresToken && !setupToken)
-    return (
-      <div className="auth-page">
-        <div className="card auth-card">
-          <div className="brand">Survey Builder</div>
-          <h1>Finish setting up</h1>
-          <p className="muted">
-            No account exists yet. To create the first one, open the setup link for this deployment. It ends in{' '}
-            <code>/login?token=…</code>, and the token is the <code>SETUP_TOKEN</code> variable on the server.
-          </p>
-        </div>
-      </div>
-    );
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setBusy(true);
     setError('');
     try {
-      const r = setup
-        ? await authApi.setup({ email, name, password, setupToken })
-        : await authApi.login(email, password);
-      setUser(r.user);
+      await authApi.login(email, password);
+      await refresh();
       nav(from, { replace: true });
     } catch (err) {
       setError((err as Error).message);
@@ -55,33 +35,25 @@ export default function Login() {
     <div className="auth-page">
       <form className="card auth-card" onSubmit={submit}>
         <div className="brand">Survey Builder</div>
-        <h1>{setup ? 'Create the first account' : 'Sign in'}</h1>
-        {setup && <p className="muted small">This account can add the rest of your team afterwards.</p>}
-        {setup && (
-          <label className="field">
-            <span>Name</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
-          </label>
-        )}
+        <h1>Sign in</h1>
         <label className="field">
           <span>Email</span>
           <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" autoFocus />
         </label>
         <label className="field">
-          <span>Password{setup ? ' (at least 10 characters)' : ''}</span>
-          <input
-            type="password"
-            required
-            minLength={setup ? 10 : undefined}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete={setup ? 'new-password' : 'current-password'}
-          />
+          <span>Password</span>
+          <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
         </label>
         {error && <div className="error small">{error}</div>}
         <button className="btn primary block" disabled={busy}>
-          {busy ? 'Please wait…' : setup ? 'Create account' : 'Sign in'}
+          {busy ? 'Signing in…' : 'Sign in'}
         </button>
+        <p className="auth-switch">
+          New here?{' '}
+          <Link to="/signup" state={location.state}>
+            Create an account
+          </Link>
+        </p>
       </form>
     </div>
   );

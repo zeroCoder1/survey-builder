@@ -4,8 +4,9 @@ import { LOCAL_MODE } from '../api';
 import { useAuth } from '../auth';
 import Icon from './Icon';
 
+/** Account menu: current workspace, switching between workspaces, team settings and sign-out. */
 export default function UserMenu() {
-  const { user, signOut } = useAuth();
+  const { user, workspace, workspaces, switchWorkspace, signOut } = useAuth();
   const [open, setOpen] = useState(false);
   const nav = useNavigate();
   if (LOCAL_MODE || !user) return null;
@@ -18,7 +19,8 @@ export default function UserMenu() {
 
   return (
     <div className="menu-wrap">
-      <button className="user-btn" onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open} title={user.email}>
+      <button className="user-btn" onClick={() => setOpen(!open)} aria-haspopup="menu" aria-expanded={open}>
+        <span className="ws-label">{workspace?.name}</span>
         <span className="avatar">{initials}</span>
         <Icon name="chevronDown" size={14} />
       </button>
@@ -26,11 +28,34 @@ export default function UserMenu() {
         <div className="menu" role="menu" onMouseLeave={() => setOpen(false)}>
           <div className="menu-head">
             <b>{user.name || user.email}</b>
-            {user.name && <span className="muted small">{user.email}</span>}
+            <span className="muted small">{user.email}</span>
           </div>
           <hr />
-          <Link to="/account" role="menuitem" className="menu-link" onClick={() => setOpen(false)}>
-            <Icon name="users" size={14} /> Team &amp; account
+          {workspaces.length > 1 && (
+            <>
+              <div className="menu-label">Workspaces</div>
+              {workspaces.map((w) => (
+                <button
+                  key={w.id}
+                  role="menuitemradio"
+                  aria-checked={w.id === workspace?.id}
+                  onClick={async () => {
+                    setOpen(false);
+                    if (w.id !== workspace?.id) {
+                      await switchWorkspace(w.id);
+                      nav('/');
+                    }
+                  }}
+                >
+                  <span>{w.name}</span>
+                  {w.id === workspace?.id && <Icon name="check" size={14} />}
+                </button>
+              ))}
+              <hr />
+            </>
+          )}
+          <Link to="/team" role="menuitem" className="menu-link" onClick={() => setOpen(false)}>
+            <Icon name="users" size={14} /> Team &amp; settings
           </Link>
           <button
             role="menuitem"

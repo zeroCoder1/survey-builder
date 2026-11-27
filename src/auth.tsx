@@ -1,55 +1,75 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { AUTH_REQUIRED_EVENT, authApi, LOCAL_MODE, type User } from './api';
+import { AUTH_REQUIRED_EVENT, authApi, LOCAL_MODE, type Session, type User, type Workspace } from './api';
 
 interface AuthState {
   user: User | null;
-  needsSetup: boolean;
-  /** Setup must be opened with the ?token=… link (production) */
-  setupRequiresToken: boolean;
+  workspace: Workspace | null;
+  workspaces: Workspace[];
   loading: boolean;
-  setUser: (u: User | null) => void;
+  /** Re-reads the session from the server (after sign-in, sign-up, joining or switching). */
+  refresh: () => Promise<void>;
+  switchWorkspace: (id: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState>({
   user: null,
-  needsSetup: false,
-  setupRequiresToken: false,
+  workspace: null,
+  workspaces: [],
   loading: false,
-  setUser: () => undefined,
+  refresh: async () => undefined,
+  switchWorkspace: async () => undefined,
   signOut: async () => undefined,
 });
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [needsSetup, setNeedsSetup] = useState(false);
-  const [setupRequiresToken, setSetupRequiresToken] = useState(false);
+  const [session, setSession] = useState<Session>({ user: null });
   const [loading, setLoading] = useState(!LOCAL_MODE);
 
-  useEffect(() => {
+  const refresh = useCallback(async () => {
     if (LOCAL_MODE) return;
-    fetch('/api/auth/me', { credentials: 'same-origin' })
-      .then((r) => r.json())
-      .then((r: { user: User | null; needsSetup?: boolean; setupRequiresToken?: boolean }) => {
-        setUser(r.user ?? null);
-        setNeedsSetup(!!r.needsSetup);
-        setSetupRequiresToken(!!r.setupRequiresToken);
-      })
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
-    const expired = () => setUser(null);
+    try {
+      setSession(await authApi.me());
+    } catch {
+      setSession({ user: null });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const expired = () => setSession({ user: null });
     window.addEventListener(AUTH_REQUIRED_EVENT, expired);
     return () => window.removeEventListener(AUTH_REQUIRED_EVENT, expired);
-  }, []);
+  }, [refresh]);
+
+  const switchWorkspace = useCallback(
+    async (id: string) => {
+      await authApi.switchWorkspace(id);
+      await refresh();
+    },
+    [refresh],
+  );
 
   const signOut = useCallback(async () => {
     await authApi.logout().catch(() => undefined);
-    setUser(null);
+    setSession({ user: null });
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, needsSetup, setupRequiresToken, loading, setUser: (u) => (setUser(u), setNeedsSetup(false)), signOut }}>
+    <AuthContext.Provider
+      value={{
+        user: session.user,
+        workspace: session.workspace ?? null,
+        workspaces: session.workspaces ?? [],
+        loading,
+        refresh,
+        switchWorkspace,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -57,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export const useAuth = () => useContext(AuthContext);
 
-/** Admin pages: redirect to sign-in when there is no session (the static build has no accounts). */
+/** Signed-in pages: send visitors to sign-in first (the static build has no accounts). */
 export function RequireAuth({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   const location = useLocation();

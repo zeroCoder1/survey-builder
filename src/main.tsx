@@ -3,11 +3,13 @@ import ReactDOM from 'react-dom/client';
 import { BrowserRouter, HashRouter, Route, Routes } from 'react-router-dom';
 import { LOCAL_MODE } from './api';
 import { AuthProvider, RequireAuth } from './auth';
-import AccountPage from './pages/AccountPage';
 import Home from './pages/Home';
+import InvitePage from './pages/InvitePage';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import StudyPage from './pages/StudyPage';
 import { LocalSurvey, PublicSurvey } from './pages/TakeSurvey';
+import TeamPage from './pages/TeamPage';
 import './styles.css';
 
 // Static hosting (GitHub Pages) has no server-side fallback, so the local build uses hash routes.
@@ -26,7 +28,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
             <>
               <Route path="/f/:token" element={<PublicSurvey />} />
               <Route path="/login" element={<Login />} />
-              <Route path="/account" element={<RequireAuth><AccountPage /></RequireAuth>} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/invite/:token" element={<InvitePage />} />
+              <Route path="/team" element={<RequireAuth><TeamPage /></RequireAuth>} />
             </>
           )}
         </Routes>

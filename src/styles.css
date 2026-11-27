@@ -392,3 +392,19 @@ table.sheet.edit input:focus { outline: 2px solid var(--accent); }
 .inline-ico { display: inline-block; vertical-align: -2px; }
 .consent-text { white-space: pre-wrap; color: #40464d; line-height: 1.5; }
 .done-mark { width: 44px; height: 44px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+.auth-switch { margin: 16px 0 0; text-align: center; font-size: 13px; color: var(--muted); }
+.menu-label { padding: 6px 10px 2px; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+.ws-label { font-size: 13px; color: var(--text); font-weight: 500; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.user-btn { padding: 3px 6px 3px 10px; gap: 8px; }
+.container.narrow { max-width: 760px; }
+.ws-head { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.ws-name { font-size: 24px; font-weight: 650; letter-spacing: -.01em; border-color: transparent; background: transparent; padding: 4px 6px; margin-left: -6px; }
+.ws-name:hover:not(:disabled), .ws-name:focus { border-color: var(--border-strong); background: var(--surface); }
+.ws-name:disabled { color: var(--text); }
+.invite-link { display: flex; gap: 8px; margin-top: 14px; }
+.invite-link input { font-family: var(--mono); font-size: 12px; background: var(--bg); }
+.invite-list { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 10px; }
+.invite-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 0; }
+.role { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #eef0f2; color: var(--muted); }
+.role.owner { background: var(--accent-soft); color: var(--accent); }
+@media (max-width: 640px) { .ws-label { display: none; } }
