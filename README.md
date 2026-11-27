@@ -40,7 +40,7 @@ npm start
 2. On the service, set these variables:
    - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`
    - `SETUP_TOKEN` = a long random string
-3. Deploy. `railway.json` builds with `npm run build`, starts with `npm start` and health-checks `/api/health`.
+3. Deploy. Railway's builder runs `npm run build` and `npm start`. Under **Settings → Deploy**, set the health-check path to `/api/health`.
 4. Open `https://<your-domain>/login?token=<SETUP_TOKEN>` to create the first account. You can then add teammates under **Team & account**.
 
 ## Security model
