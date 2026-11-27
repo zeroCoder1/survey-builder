@@ -4,26 +4,40 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -n api,web -c blue,green \"node --watch server/index.js\" \"vite\"",
-    "build": "tsc --noEmit && vite build",
+    "dev": "concurrently -k -n api,web -c blue,green \"tsx watch --env-file=.env server/index.ts\" \"vite\"",
+    "build": "npm run typecheck && vite build && npm run build:server",
+    "build:server": "esbuild server/index.ts --bundle --platform=node --format=esm --target=node22 --packages=external --outfile=dist-server/index.js",
     "build:pages": "tsc --noEmit && VITE_STORAGE=local VITE_BASE=/survey-builder/ vite build",
-    "start": "npm run build && NODE_ENV=production node server/index.js",
-    "typecheck": "tsc --noEmit"
+    "start": "NODE_ENV=production node dist-server/index.js",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.server.json"
   },
   "dependencies": {
+    "cookie-parser": "^1.4.7",
     "exceljs": "4.4.0",
-    "express": "4.21.2",
+    "express": "^5.1.0",
+    "express-rate-limit": "^7.4.1",
+    "helmet": "^8.0.0",
+    "pg": "^8.13.1",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "react-router-dom": "6.28.0"
   },
   "devDependencies": {
+    "@types/cookie-parser": "^1.4.8",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.1",
+    "@types/pg": "^8.11.10",
     "@types/react": "18.3.12",
     "@types/react-dom": "18.3.1",
     "@vitejs/plugin-react": "4.3.4",
     "concurrently": "9.1.0",
+    "esbuild": "^0.24.0",
+    "tsx": "^4.19.2",
     "typescript": "5.6.3",
     "vite": "5.4.11"
   },
-  "description": "Build multi-survey questionnaires, collect or simulate responses, and export them to Excel."
+  "description": "Build multi-survey questionnaires, collect or simulate responses, and export them to Excel.",
+  "engines": {
+    "node": ">=22"
+  }
 }

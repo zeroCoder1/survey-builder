@@ -160,3 +160,5 @@ vite.config.ts.timestamp-*
 data/db.json
 .claude/
 .DS_Store
+!.env.example
+dist-server
