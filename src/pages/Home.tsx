@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { api, LOCAL_MODE } from '../api';
+import UserMenu from '../components/UserMenu';
 import { newStudy } from '../model';
 import { sampleStudyTemplate } from '../template';
 import type { StudySummary } from '../types';
@@ -31,6 +32,8 @@ export default function Home() {
     <div className="page">
       <header className="topbar">
         <div className="brand">Survey Builder</div>
+        <div className="spacer" />
+        <UserMenu />
       </header>
       <main className="container">
         <div className="row between wrap gap">
