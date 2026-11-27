@@ -369,3 +369,26 @@ table.sheet.edit input:focus { outline: 2px solid var(--accent); }
   body, .doc { background: #fff; border: none; padding: 0; }
   .container { padding: 0; max-width: none; }
 }
+
+.btn.disabled { opacity: .5; pointer-events: none; }
+.switch { font-size: 13px; padding: 4px 8px; border-radius: 6px; }
+.switch input { accent-color: var(--accent); width: 15px; height: 15px; }
+
+/* ==========================================================================
+   Accounts
+   ========================================================================== */
+.auth-page { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.auth-card { width: 100%; max-width: 380px; padding: 28px; }
+.auth-card h1 { font-size: 22px; margin: 18px 0 6px; }
+.auth-card .btn.block { margin-top: 14px; padding: 10px; }
+.user-btn { display: inline-flex; align-items: center; gap: 4px; border: none; background: none; cursor: pointer; padding: 3px 4px 3px 3px; border-radius: 999px; color: var(--muted); }
+.user-btn:hover { background: #eef0f2; }
+.user-btn .avatar { width: 30px; height: 30px; font-size: 11px; }
+.menu-head { display: flex; flex-direction: column; padding: 8px 10px 4px; }
+.menu-link { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 5px; color: var(--text); }
+.menu-link:hover { background: var(--accent-soft); }
+.user-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.user-row:last-child { border-bottom: none; }
+.inline-ico { display: inline-block; vertical-align: -2px; }
+.consent-text { white-space: pre-wrap; color: #40464d; line-height: 1.5; }
+.done-mark { width: 44px; height: 44px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 6px; }

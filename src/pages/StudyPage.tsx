@@ -1,7 +1,8 @@
 import Icon from '../components/Icon';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { api } from '../api';
+import { api, logExport } from '../api';
+import UserMenu from '../components/UserMenu';
 import { downloadWorkbook } from '../exportExcel';
 import type { Study, SurveyResponse } from '../types';
 import BuildTab from './BuildTab';
@@ -36,10 +37,19 @@ export default function StudyPage() {
 
   const flush = useCallback(async () => {
     if (!latest.current) return;
+    const sent = latest.current;
     setSaveState('saving');
     try {
-      await api.saveStudy(latest.current);
-      setSaveState('saved');
+      const saved = await api.saveStudy(sent);
+      // the server assigns form tokens to new surveys; fold them in without losing edits made meanwhile
+      const tokens = new Map(saved.surveys.map((s) => [s.id, s.formToken]));
+      const current = latest.current;
+      if (current.surveys.some((s) => !s.formToken && tokens.get(s.id))) {
+        const merged = { ...current, surveys: current.surveys.map((s) => (s.formToken ? s : { ...s, formToken: tokens.get(s.id) })) };
+        latest.current = merged;
+        setStudyState(merged);
+      }
+      setSaveState(current === sent ? 'saved' : 'dirty');
     } catch {
       setSaveState('error');
     }
@@ -72,6 +82,7 @@ export default function StudyPage() {
       blank: mode === 'BLANK',
       dataTypes: mode === 'ALL' || mode === 'BLANK' ? ['LIVE', 'SIMULATED'] : [mode],
     });
+    logExport(study.id, { mode });
   };
 
   return (
@@ -109,6 +120,7 @@ export default function StudyPage() {
             </div>
           )}
         </div>
+        <UserMenu />
       </header>
       <nav className="tabs">
         {(Object.keys(TAB_LABELS) as Tab[]).map((t) => (

@@ -45,7 +45,7 @@ export default function BuildTab({ study, setStudy }: Props) {
 
   const codes = survey ? allQuestions(survey).map((q) => q.code) : [];
   const dupCodes = new Set(codes.filter((c, i) => c && codes.indexOf(c) !== i));
-  const shareUrl = survey ? formUrl(study.id, survey.id) : '';
+  const shareUrl = survey ? formUrl(study.id, survey) : '';
   const [copied, setCopied] = useState(false);
 
   return (
@@ -71,6 +71,15 @@ export default function BuildTab({ study, setStudy }: Props) {
             <textarea rows={5} value={study.intro} onChange={(e) => setStudy({ ...study, intro: e.target.value })} />
           </label>
           <label className="field">
+            <span>Privacy notice (respondents must agree before submitting)</span>
+            <textarea
+              rows={4}
+              placeholder="e.g. Your answers are used only for this study, stored securely, deleted after 12 months, and reported only for groups of five or more."
+              value={study.consentText ?? ''}
+              onChange={(e) => setStudy({ ...study, consentText: e.target.value })}
+            />
+          </label>
+          <label className="field">
             <span>Extra lines for the export's README sheet</span>
             <textarea rows={3} value={study.readmeNotes} onChange={(e) => setStudy({ ...study, readmeNotes: e.target.value })} />
           </label>
@@ -86,10 +95,25 @@ export default function BuildTab({ study, setStudy }: Props) {
               <input className="subtle" value={survey.description} placeholder="Instructions shown at the top of the form (optional)" onChange={(e) => setSurvey({ ...survey, description: e.target.value })} style={{ flex: 1, minWidth: 220 }} />
             </div>
             <div className="row gap wrap center" style={{ marginTop: 10 }}>
-              <a className="btn small" href={shareUrl} target="_blank" rel="noreferrer">Preview form <Icon name="external" size={14} /></a>
-              <button className="btn small" onClick={() => (navigator.clipboard?.writeText(shareUrl), setCopied(true), setTimeout(() => setCopied(false), 1500))}>
+              <a className={`btn small ${shareUrl ? '' : 'disabled'}`} href={shareUrl || undefined} target="_blank" rel="noreferrer" aria-disabled={!shareUrl}>
+                Preview form <Icon name="external" size={14} />
+              </a>
+              <button
+                className="btn small"
+                disabled={!shareUrl}
+                title={shareUrl ? undefined : 'Saving…'}
+                onClick={() => (navigator.clipboard?.writeText(shareUrl), setCopied(true), setTimeout(() => setCopied(false), 1500))}
+              >
                 <Icon name={copied ? 'check' : 'link'} size={14} /> {copied ? 'Link copied' : 'Copy form link'}
               </button>
+              <label className="check switch" title="When off, the form shows a closed message and rejects new submissions">
+                <input
+                  type="checkbox"
+                  checked={survey.acceptingResponses !== false}
+                  onChange={(e) => setSurvey({ ...survey, acceptingResponses: e.target.checked })}
+                />
+                {survey.acceptingResponses !== false ? 'Accepting responses' : 'Closed'}
+              </label>
               <div className="spacer" />
               <button className={`btn small ghost ${surveySettings ? 'on' : ''}`} onClick={() => setSurveySettings(!surveySettings)}>
                 <Icon name="sliders" size={14} /> Settings

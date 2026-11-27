@@ -62,7 +62,7 @@ export default function ResponsesTab({ study, setStudy, responses, reload, goToP
             </div>
           </div>
           <div className="spacer" />
-          <a className="btn small" href={formUrl(study.id, survey.id)} target="_blank" rel="noreferrer">
+          <a className="btn small" href={formUrl(study.id, survey)} target="_blank" rel="noreferrer">
             Fill in a response <Icon name="external" size={14} />
           </a>
           <button className={`btn small ${simOpen ? 'primary' : ''}`} onClick={() => setSimOpen(!simOpen)}>
