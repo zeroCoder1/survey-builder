@@ -3,7 +3,7 @@ import { Router } from 'express';
 import type pg from 'pg';
 import type { Study, SurveyResponse } from '../src/types.js';
 import { audit } from './audit.js';
-import { requireUser } from './auth.js';
+import { requireWorkspace } from './auth.js';
 import { query, tx } from './db.js';
 
 export const newFormToken = () => randomBytes(18).toString('base64url');
@@ -101,14 +101,15 @@ async function loadStudy(id: string): Promise<Study | null> {
 }
 
 export const studiesRouter = Router();
-studiesRouter.use(requireUser);
+studiesRouter.use(requireWorkspace);
 
-studiesRouter.get('/', async (_req, res) => {
+studiesRouter.get('/', async (req, res) => {
   const { rows } = await query(
     `SELECT s.id, s.data->>'title' AS title, s.updated_at AS "updatedAt",
             jsonb_array_length(s.data->'surveys') AS "surveyCount",
             (SELECT count(*)::int FROM responses r WHERE r.study_id = s.id) AS "responseCount"
-       FROM studies s ORDER BY s.updated_at DESC`,
+       FROM studies s WHERE s.workspace_id = $1 ORDER BY s.updated_at DESC`,
+    [req.workspace!.id],
   );
   res.json(rows);
 });
@@ -117,9 +118,16 @@ studiesRouter.post('/', async (req, res) => {
   const id = randomUUID();
   const study = withFormTokens({ ...(req.body as Study), id });
   const { createdAt: _c, updatedAt: _u, ...data } = study;
-  await query('INSERT INTO studies (id, data, created_by) VALUES ($1, $2, $3)', [id, JSON.stringify(data), req.user!.id]);
+  await query('INSERT INTO studies (id, data, created_by, workspace_id) VALUES ($1, $2, $3, $4)', [id, JSON.stringify(data), req.user!.id, req.workspace!.id]);
   await audit(req, 'study.created', {}, id);
   res.status(201).json(await loadStudy(id));
+});
+
+// Every /:id route below only sees studies in the caller's active workspace.
+studiesRouter.use('/:id', async (req, res, next) => {
+  const { rowCount } = await query('SELECT 1 FROM studies WHERE id = $1 AND workspace_id = $2', [req.params.id, req.workspace!.id]);
+  if (!rowCount) return res.status(404).json({ error: 'Study not found' });
+  next();
 });
 
 studiesRouter.get('/:id', async (req, res) => {
