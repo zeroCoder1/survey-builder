@@ -1,11 +1,12 @@
 import { formUrl } from '../api';
 import Icon from '../components/Icon';
-import { useState } from 'react';
-import QuestionEditor from '../components/QuestionEditor';
+import { useState, type DragEvent } from 'react';
+import AddQuestion from '../components/AddQuestion';
+import QuestionCard from '../components/QuestionCard';
 import RespondentsPicker from '../components/RespondentsPicker';
-import { allQuestions, newQuestion, newSection, newSurvey, nextCode, renumberSurvey, uid } from '../model';
+import { allQuestions, newSection, newSurvey, nextCode, nextCodes, renumberSurvey, uid } from '../model';
 import { identityCodeFor, respondentsFor } from '../org';
-import { QTYPE_LABELS, type QType, type Question, type Section, type Study, type Survey } from '../types';
+import type { Question, Section, Study, Survey } from '../types';
 
 interface Props {
   study: Study;
@@ -20,15 +21,44 @@ function move<T>(arr: T[], i: number, dir: -1 | 1): T[] {
   return a;
 }
 
-const QUICK_TYPES: QType[] = ['likert', 'single', 'multi', 'yesno', 'scale', 'text', 'number', 'longtext'];
+/** A question being dragged, and where it would land. */
+interface DragState {
+  qid: string;
+  from: string;
+  over: { sec: string; index: number } | null;
+}
 
 export default function BuildTab({ study, setStudy }: Props) {
   const [selId, setSelId] = useState(study.surveys[0]?.id ?? '');
   const [openQ, setOpenQ] = useState<string | null>(null);
   const [surveySettings, setSurveySettings] = useState(false);
+  const [drag, setDrag] = useState<DragState | null>(null);
   const survey = study.surveys.find((s) => s.id === selId) ?? study.surveys[0];
+  const divisions = [...new Set((study.org ?? []).map((p) => p.division).filter(Boolean))].sort();
 
   const setSurvey = (sv: Survey) => setStudy({ ...study, surveys: study.surveys.map((s) => (s.id === sv.id ? sv : s)) });
+
+  /** Moves a dragged question to a position in any section (including another one). */
+  const dropQuestion = () => {
+    if (!drag?.over || !survey) return setDrag(null);
+    const { qid, from, over } = drag;
+    const source = survey.sections.find((s) => s.id === from)!;
+    const fromIndex = source.questions.findIndex((q) => q.id === qid);
+    const item = source.questions[fromIndex];
+    let index = over.index;
+    if (over.sec === from && fromIndex < index) index -= 1;
+    const sections = survey.sections.map((s) => (s.id === from ? { ...s, questions: s.questions.filter((q) => q.id !== qid) } : s));
+    setSurvey({
+      ...survey,
+      sections: sections.map((s) => {
+        if (s.id !== over.sec) return s;
+        const qs = [...s.questions];
+        qs.splice(index, 0, item);
+        return { ...s, questions: qs };
+      }),
+    });
+    setDrag(null);
+  };
 
   const addSurvey = () => {
     const s = newSurvey(`S${study.surveys.length + 1}`);
@@ -177,6 +207,10 @@ export default function BuildTab({ study, setStudy }: Props) {
               dupCodes={dupCodes}
               openQ={openQ}
               setOpenQ={setOpenQ}
+              divisions={divisions}
+              drag={drag}
+              setDrag={setDrag}
+              onDropQuestion={dropQuestion}
               onChange={(next) => setSurvey({ ...survey, sections: survey.sections.map((s) => (s.id === sec.id ? next : s)) })}
               onMove={(dir) => setSurvey({ ...survey, sections: move(survey.sections, si, dir) })}
               onDelete={() =>
@@ -225,6 +259,10 @@ function SectionBlock({
   dupCodes,
   openQ,
   setOpenQ,
+  divisions,
+  drag,
+  setDrag,
+  onDropQuestion,
   onChange,
   onMove,
   onDelete,
@@ -234,21 +272,26 @@ function SectionBlock({
   dupCodes: Set<string>;
   openQ: string | null;
   setOpenQ: (id: string | null) => void;
+  divisions: string[];
+  drag: DragState | null;
+  setDrag: (d: DragState | null) => void;
+  onDropQuestion: () => void;
   onChange: (s: Section) => void;
   onMove: (dir: -1 | 1) => void;
   onDelete: () => void;
 }) {
   const [settings, setSettings] = useState(false);
-  const [adding, setAdding] = useState(false);
   const roster = sec.kind === 'roster' ? sec.roster : undefined;
   const setRoster = (patch: Partial<NonNullable<Section['roster']>>) => onChange({ ...sec, roster: { ...sec.roster!, ...patch } });
   const linkable = survey.sections.filter((s) => s.kind !== 'roster').flatMap((s) => s.questions).filter((q) => q.type === 'text' || q.type === 'number');
 
-  const add = (type: QType) => {
-    const nq = newQuestion(type, nextCode(survey, sec));
-    onChange({ ...sec, questions: [...sec.questions, nq] });
-    setOpenQ(nq.id);
-    setAdding(false);
+  const over = drag?.over?.sec === sec.id ? drag.over.index : null;
+  const hover = (index: number) => drag && (drag.over?.sec !== sec.id || drag.over.index !== index) && setDrag({ ...drag, over: { sec: sec.id, index } });
+  const onCardDragOver = (qi: number) => (e: DragEvent<HTMLDivElement>) => {
+    if (!drag) return;
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    hover(e.clientY < rect.top + rect.height / 2 ? qi : qi + 1);
   };
 
   return (
@@ -309,14 +352,27 @@ function SectionBlock({
       )}
 
       {sec.questions.map((q, qi) => (
-        <QuestionEditor
+        <QuestionCard
           key={q.id}
           q={q}
           survey={survey}
           inRoster={!!roster}
           duplicateCode={dupCodes.has(q.code)}
-          open={openQ === q.id}
-          onToggle={() => setOpenQ(openQ === q.id ? null : q.id)}
+          active={openQ === q.id}
+          onActivate={() => setOpenQ(q.id)}
+          onClose={() => setOpenQ(null)}
+          dnd={{
+            dragging: drag?.qid === q.id,
+            dropEdge: over === qi ? 'before' : over === qi + 1 && qi === sec.questions.length - 1 ? 'after' : null,
+            onDragStart: (e) => {
+              e.dataTransfer.effectAllowed = 'move';
+              e.dataTransfer.setData('text/plain', q.code);
+              setDrag({ qid: q.id, from: sec.id, over: null });
+            },
+            onDragEnd: () => setDrag(null),
+            onDragOver: onCardDragOver(qi),
+            onDrop: onDropQuestion,
+          }}
           onChange={(nq: Question) => onChange({ ...sec, questions: sec.questions.map((x) => (x.id === q.id ? nq : x)) })}
           onMove={(dir) => onChange({ ...sec, questions: move(sec.questions, qi, dir) })}
           onDuplicate={() => {
@@ -330,16 +386,28 @@ function SectionBlock({
         />
       ))}
 
-      {adding ? (
-        <div className="type-picker">
-          {QUICK_TYPES.map((t) => (
-            <button key={t} className="btn small" onClick={() => add(t)}>{QTYPE_LABELS[t]}</button>
-          ))}
-          <button className="btn small ghost" onClick={() => setAdding(false)}>Cancel</button>
+      {sec.questions.length === 0 && (
+        <div
+          className={`drop-zone ${drag ? 'live' : ''} ${over === 0 ? 'over' : ''}`}
+          onDragOver={(e) => {
+            if (!drag) return;
+            e.preventDefault();
+            hover(0);
+          }}
+          onDrop={onDropQuestion}
+        >
+          {drag ? 'Drop the question here' : 'No questions in this section yet.'}
         </div>
-      ) : (
-        <button className="btn small dashed" onClick={() => setAdding(true)}><Icon name="plus" size={14} /> Add question</button>
       )}
+
+      <AddQuestion
+        divisions={divisions}
+        nextCodes={(n) => nextCodes(survey, sec, n)}
+        onAdd={(added) => {
+          onChange({ ...sec, questions: [...sec.questions, ...added] });
+          setOpenQ(added.length === 1 ? added[0].id : null);
+        }}
+      />
     </section>
   );
 }
