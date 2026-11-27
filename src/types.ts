@@ -87,6 +87,10 @@ export interface Survey {
   respondents?: Respondents;
   /** Code of the question that holds the respondent's own code (e.g. EMP-P5) */
   identityCode?: string;
+  /** Unguessable token used in the public form link; assigned by the server */
+  formToken?: string;
+  /** When false, the form is closed and new submissions are rejected (default: open) */
+  acceptingResponses?: boolean;
   /** Code prefix and Response ID prefix, e.g. EMP */
   code: string;
   title: string;
@@ -103,6 +107,8 @@ export interface Study {
   intro: string;
   /** Extra README lines written into the export's README sheet */
   readmeNotes: string;
+  /** Privacy / consent notice; when set, respondents must agree before submitting */
+  consentText?: string;
   surveys: Survey[];
   /** Optional org directory (names, codes, reporting lines) */
   org?: Person[];

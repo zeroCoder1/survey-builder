@@ -1,4 +1,4 @@
-import { LIKERT_LABELS, type AnswerValue, type Question, type QType, type Section, type Study, type Survey } from './types';
+import { LIKERT_LABELS, type AnswerValue, type Question, type QType, type RosterRow, type Section, type Study, type Survey } from './types';
 
 export const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
 
@@ -169,4 +169,74 @@ export function typeSummary(q: Question): string {
     default:
       return 'Free text';
   }
+}
+
+const TEXT_LIMIT = { text: 500, longtext: 5000 } as const;
+const ROSTER_LIMIT = 200;
+
+/** Validates one answer's shape and value against the question. Returns an error or null. */
+function checkValue(q: Question, v: AnswerValue): string | null {
+  switch (q.type) {
+    case 'likert':
+    case 'scale':
+      return typeof v === 'number' && scalePoints(q).includes(v) ? null : 'Choose a point on the scale.';
+    case 'yesno':
+      return v === 'Yes' || v === 'No' ? null : 'Choose Yes or No.';
+    case 'single':
+      return typeof v === 'string' && q.options.includes(v) ? null : 'Choose one of the options.';
+    case 'multi':
+      return Array.isArray(v) && v.every((x) => q.options.includes(x)) && new Set(v).size === v.length ? null : 'Choose from the listed options.';
+    case 'number':
+      return typeof v === 'number' && Number.isFinite(v) ? null : 'Enter a number.';
+    case 'text':
+    case 'longtext':
+      return typeof v === 'string' && v.length <= TEXT_LIMIT[q.type] ? null : `Keep the answer under ${TEXT_LIMIT[q.type]} characters.`;
+  }
+}
+
+export interface SubmissionResult {
+  /** Keyed by question id, or `${sectionId}:${row}:${questionId|key}` for repeating groups */
+  errors: Record<string, string>;
+  answers: Record<string, AnswerValue>;
+  roster: Record<string, RosterRow[]>;
+}
+
+/**
+ * Validates and cleans a full submission: drops unknown and hidden questions, trims text,
+ * checks types, options, required answers and pick-N rules. Used by both the form and the server.
+ */
+export function validateSubmission(survey: Survey, rawAnswers: unknown, rawRoster: unknown): SubmissionResult {
+  const errors: Record<string, string> = {};
+  const answersIn = (rawAnswers && typeof rawAnswers === 'object' ? rawAnswers : {}) as Record<string, AnswerValue>;
+  const rosterIn = (rawRoster && typeof rawRoster === 'object' ? rawRoster : {}) as Record<string, unknown>;
+  const answers: Record<string, AnswerValue> = {};
+  const roster: Record<string, RosterRow[]> = {};
+  const tidy = (v: AnswerValue) => (typeof v === 'string' ? v.trim() : v);
+
+  const check = (q: Question, v: AnswerValue, key: string, out: Record<string, AnswerValue>) => {
+    const value = tidy(v);
+    const err = isEmpty(value) ? validateAnswer(q, value) : checkValue(q, value) ?? validateAnswer(q, value);
+    if (err) errors[key] = err;
+    else if (!isEmpty(value)) out[q.id] = value;
+  };
+
+  for (const sec of survey.sections) {
+    if (sec.kind === 'roster') {
+      const rows = Array.isArray(rosterIn[sec.id]) ? (rosterIn[sec.id] as unknown[]).slice(0, ROSTER_LIMIT) : [];
+      roster[sec.id] = rows.map((raw, i) => {
+        const row = (raw && typeof raw === 'object' ? raw : {}) as Partial<RosterRow>;
+        const key = typeof row.key === 'string' ? row.key.trim().slice(0, 100) : '';
+        if (!key) errors[`${sec.id}:${i}:key`] = 'Required.';
+        const out: Record<string, AnswerValue> = {};
+        for (const q of sec.questions) check(q, (row.answers ?? {})[q.id], `${sec.id}:${i}:${q.id}`, out);
+        return { key, answers: out };
+      });
+      continue;
+    }
+    for (const q of sec.questions) {
+      if (!isVisible(q, survey, answersIn)) continue;
+      check(q, answersIn[q.id], q.id, answers);
+    }
+  }
+  return { errors, answers, roster };
 }

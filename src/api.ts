@@ -1,4 +1,4 @@
-import type { Study, StudySummary, SurveyResponse } from './types';
+import type { Study, StudySummary, Survey, SurveyResponse } from './types';
 
 export type NewResponse = Pick<SurveyResponse, 'surveyId' | 'answers' | 'roster'> &
   Partial<Pick<SurveyResponse, 'dataType' | 'submittedAt' | 'personCode' | 'personName'>>;
@@ -22,15 +22,30 @@ export const LOCAL_MODE = import.meta.env.VITE_STORAGE === 'local';
 // ---------------------------------------------------------------------------------------------
 // HTTP: talks to server/index.js
 
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly errors?: Record<string, string>,
+  ) {
+    super(message);
+  }
+}
+
+/** Fired when the server says the session is missing or expired. */
+export const AUTH_REQUIRED_EVENT = 'survey-builder:auth-required';
+
 async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    credentials: 'same-origin',
+    headers: { 'X-Requested-With': 'survey-builder', ...(body ? { 'Content-Type': 'application/json' } : {}) },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
     const msg = await res.json().catch(() => ({}));
-    throw new Error(msg.error || `${method} ${url} failed (${res.status})`);
+    if (res.status === 401 && !url.startsWith('/api/auth/')) window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
+    throw new ApiError(msg.error || `Request failed (${res.status})`, res.status, msg.errors);
   }
   return res.status === 204 ? (undefined as T) : res.json();
 }
@@ -173,9 +188,53 @@ const localApi: Api = {
 
 export const api: Api = LOCAL_MODE ? localApi : httpApi;
 
-/** Absolute URL of a survey's respondent form, correct for both the server build and the static (hash-routed) build. */
-export function formUrl(studyId: string, surveyId: string): string {
-  const path = `/take/${studyId}/${surveyId}`;
-  if (LOCAL_MODE) return `${location.origin}${import.meta.env.BASE_URL}#${path}`;
-  return `${location.origin}${path}`;
+/**
+ * Absolute URL of a survey's respondent form. The server build uses the survey's unguessable form token;
+ * the static build uses hash routes. Returns '' until the server has assigned a token.
+ */
+export function formUrl(studyId: string, survey: Pick<Survey, 'id' | 'formToken'>): string {
+  if (LOCAL_MODE) return `${location.origin}${import.meta.env.BASE_URL}#/take/${studyId}/${survey.id}`;
+  return survey.formToken ? `${location.origin}/f/${survey.formToken}` : '';
 }
+
+// ---------------------------------------------------------------------------------------------
+// Accounts (server build only)
+
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  createdAt?: string;
+}
+
+export const authApi = {
+  me: () => req<{ user: User }>('GET', '/api/auth/me'),
+  login: (email: string, password: string) => req<{ user: User }>('POST', '/api/auth/login', { email, password }),
+  setup: (body: { email: string; name: string; password: string; setupToken: string }) => req<{ user: User }>('POST', '/api/auth/setup', body),
+  logout: () => req<void>('POST', '/api/auth/logout'),
+  changePassword: (currentPassword: string, newPassword: string) => req<void>('POST', '/api/auth/password', { currentPassword, newPassword }),
+  listUsers: () => req<User[]>('GET', '/api/users'),
+  createUser: (body: { email: string; name: string; password: string }) => req<User>('POST', '/api/users', body),
+  deleteUser: (id: string) => req<void>('DELETE', `/api/users/${id}`),
+};
+
+/** Records an export in the server's audit log (no-op for the static build). */
+export function logExport(studyId: string, detail: Record<string, unknown>) {
+  if (LOCAL_MODE) return Promise.resolve();
+  return req<void>('POST', `/api/studies/${studyId}/audit`, { action: 'responses.exported', detail }).catch(() => undefined);
+}
+
+// ---------------------------------------------------------------------------------------------
+// Public respondent form (server build only)
+
+export interface PublicForm {
+  study: { title: string; intro: string; consentText: string };
+  survey: Survey;
+  accepting: boolean;
+}
+
+export const formsApi = {
+  get: (token: string) => req<PublicForm>('GET', `/api/forms/${encodeURIComponent(token)}`),
+  submit: (token: string, body: { answers: SurveyResponse['answers']; roster: SurveyResponse['roster']; consent: boolean }) =>
+    req<{ responseId: string }>('POST', `/api/forms/${encodeURIComponent(token)}/responses`, body),
+};
